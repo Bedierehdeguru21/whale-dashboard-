@@ -25,9 +25,11 @@ app.get("/whales", async (req, res) => {
   }
 });
 
-const server = app.listen(3000, () => {
-  console.log("Whale radar running 🐋");
-});
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT,()=>{
+console.log(`Whale radar running 🐋 on port ${PORT}`)
+})
 
 // ── Optional root endpoint ──
 app.get("/", (req, res) => {
