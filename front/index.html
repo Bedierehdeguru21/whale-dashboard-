@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🐋 Whale Tracker</title>
+
+  <!-- Google Fonts: Space Mono (monospace data feel) + Syne (futuristic display) -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <style>
+    /* ============================================================
+       CSS CUSTOM PROPERTIES — theme vars, easily editable
+       ============================================================ */
+    :root {
+      --bg:        #0a0e1a;
+      --surface:   #111827;
+      --surface2:  #1a2235;
+      --border:    #1f2d45;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --accent:    #00e5ff;
+      --accent2:   #7c3aed;
+      --highlight: #fbbf24;
+      --danger:    #f43f5e;
+      --success:   #10b981;
+      --whale-row: rgba(251,191,36,0.08);
+      --whale-border: rgba(251,191,36,0.5);
+      --font-mono: 'Space Mono', monospace;
+      --font-head: 'Syne', sans-serif;
+      --radius:    8px;
+      --shadow:    0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    [data-theme="light"] {
+      --bg:        #f0f4ff;
+      --surface:   #ffffff;
+      --surface2:  #e8edf8;
+      --border:    #cbd5e1;
+      --text:      #0f172a;
+      --muted:     #64748b;
+      --accent:    #0284c7;
+      --accent2:   #7c3aed;
+      --highlight: #d97706;
+      --danger:    #e11d48;
+      --success:   #059669;
+      --whale-row: rgba(217,119,6,0.08);
+      --whale-border: rgba(217,119,6,0.5);
+      --shadow:    0 4px 24px rgba(0,0,0,0.12);
+    }
+
+    /* ============================================================
+       RESET & BASE
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* Subtle animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ============================================================
+       LAYOUT
+       ============================================================ */
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px 0 24px;
+      flex-wrap: wrap;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .logo {
+      font-family: var(--font-head);
+      font-size: clamp(22px, 5vw, 32px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo span {
+      color: var(--accent);
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16,185,129,0.12);
+      border: 1px solid var(--success);
+      color: var(--success);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    .live-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* ============================================================
+       BUTTONS
+       ============================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+      letter-spacing: 0.5px;
+    }
+
+    .btn:hover {
+      background: var(--surface2);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 12px rgba(0,229,255,0.15);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+    }
+    .btn-primary:hover {
+      opacity: 0.85;
+      color: #000;
+      box-shadow: 0 0 20px rgba(0,229,255,0.35);
+    }
+
+    .btn-icon {
+      padding: 8px 10px;
+    }
+
+    .btn.spinning svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ============================================================
+       STATS ROW
+       ============================================================ */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover { border-color: var(--accent); }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-family: var(--font-head);
+      font-size: clamp(18px, 4vw, 24px);
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .stat-value.accent  { color: var(--accent); }
+    .stat-value.warn    { color: var(--highlight); }
+    .stat-value.danger  { color: var(--danger); }
+
+    /* ============================================================
+       ALERTS PANEL
+       ============================================================ */
+    #alerts-panel {
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .alert-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(244,63,94,0.1);
+      border: 1px solid var(--danger);
+      border-left: 4px solid var(--danger);
+      border-radius: var(--radius);
+      animation: slideIn 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .alert-item::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 2px;
+      background: var(--danger);
+      animation: countdown 8s linear forwards;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes countdown {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
+
+    .alert-icon { font-size: 18px; flex-shrink: 0; }
+
+    .alert-body { flex: 1; min-width: 0; }
+
+    .alert-title {
+      font-weight: 700;
+      color: var(--danger);
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .alert-detail {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .alert-dismiss {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+      line-height: 1;
+      transition: color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .alert-dismiss:hover { color: var(--danger); }
+
+    /* ============================================================
+       MAIN GRID (table + chart)
+       ============================================================ */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1fr 380px;
+      }
+    }
+
+    /* ============================================================
+       PANELS (shared card style)
+       ============================================================ */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .panel-title {
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ============================================================
+       SEARCH INPUT
+       ============================================================ */
+    .search-wrap {
+      position: relative;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 10px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #search-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 7px 12px 7px 32px;
+      width: 200px;
+      max-width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    #search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+    }
+
+    /* ============================================================
+       TABLE
+       ============================================================ */
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 520px;
+    }
+
+    thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover { background: var(--surface2); }
+
+    /* Whale row: amount > 50 ETH */
+    tbody tr.whale-row {
+      background: var(--whale-row);
+      border-left: 3px solid var(--whale-border);
+    }
+
+    tbody tr.whale-row:hover { background: rgba(251,191,36,0.14); }
+
+    tbody td {
+      padding: 10px 14px;
+      vertical-align: middle;
+      font-size: 12px;
+    }
+
+    .wallet-cell {
+      font-size: 11px;
+      color: var(--accent);
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .amount-cell {
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .amount-cell.big { color: var(--highlight); }
+
+    .hash-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 11px;
+      transition: color 0.15s;
+      display: inline-block;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .hash-link:hover { color: var(--accent); text-decoration: underline; }
+
+    .time-cell {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .whale-badge {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 13px; }
+
+    /* ============================================================
+       CHART PANEL
+       ============================================================ */
+    .chart-panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-body {
+      padding: 16px;
+      flex: 1;
+      position: relative;
+      min-height: 260px;
+    }
+
+    /* ============================================================
+       THEME TOGGLE
+       ============================================================ */
+    #theme-toggle {
+      position: relative;
+      width: 46px; height: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    #theme-toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      transition: transform 0.3s;
+    }
+
+    [data-theme="light"] #theme-toggle::after {
+      transform: translateX(22px);
+    }
+
+    .theme-icons {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5px;
+      pointer-events: none;
+      font-size: 10px;
+    }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    footer {
+      text-align: center;
+      padding: 24px 0 12px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ============================================================
+       LOADING OVERLAY
+       ============================================================ */
+    #loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10,14,26,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    #loading-overlay.active { display: flex; }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ============================================================
+       SCROLLBAR STYLING
+       ============================================================ */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    /* ============================================================
+       RESPONSIVE TWEAKS
+       ============================================================ */
+    @media (max-width: 600px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      #search-input { width: 140px; }
+      .panel-header { gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay shown during fetch -->
+<div id="loading-overlay" aria-label="Loading">
+  <div class="spinner"></div>
+</div>
+
+<div class="app">
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header>
+    <div class="header-left">
+      <div class="logo">🐋 <span>Whale</span>Tracker</div>
+      <div class="live-badge">Live</div>
+    </div>
+    <div class="header-right">
+      <!-- Dark/Light mode toggle -->
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);">
+        <span>🌙</span>
+        <button id="theme-toggle" aria-label="Toggle theme" title="Toggle dark/light mode">
+          <span class="theme-icons"><span>🌙</span><span>☀️</span></span>
+        </button>
+        <span>☀️</span>
+      </div>
+
+      <!-- Manual refresh button -->
+      <button class="btn btn-primary" id="refresh-btn" title="Fetch new transactions">
+        <!-- Refresh icon (inline SVG) -->
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
+             viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M1 4v6h6M23 20v-6h-6"/>
+          <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+        </svg>
+        Check New
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       STATS SUMMARY ROW
+       ============================================================ -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Txns</div>
+      <div class="stat-value accent" id="stat-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total ETH</div>
+      <div class="stat-value" id="stat-eth">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Whales (>50Ξ)</div>
+      <div class="stat-value warn" id="stat-whales">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Mega (>100Ξ)</div>
+      <div class="stat-value danger" id="stat-mega">—</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       LIVE ALERTS PANEL — auto-populated for txns > 100 ETH
+       ============================================================ -->
+  <div id="alerts-panel" aria-live="polite" aria-label="Live alerts"></div>
+
+  <!-- ============================================================
+       MAIN CONTENT: TABLE + CHART SIDE-BY-SIDE (on larger screens)
+       ============================================================ -->
+  <div class="main-grid">
+
+    <!-- ---- TRANSACTIONS TABLE ---- -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <!-- Table icon -->
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"
+               viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="3" y1="15" x2="21" y2="15"/>
+            <line x1="9" y1="9" x2="9" y2="21"/>
+          </svg>
+          Transactions
+        </div>
+
+        <!-- Search/filter input -->
+        <div class="search-wrap">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
+               viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Filter by wallet…"
+            autocomplete="off"
+            aria-label="Filter transactions by wallet address"
+          />
+        </div>
+      </div>
+
+      <!-- Scrollable table container (important for mobile) -->
+      <div class="table-wrap">
+        <table id="txn-table" aria-label="Whale transactions table">
+          <thead>
+            <tr>
+              <th>Wallet</th>
+              <th>Amount (ETH)</th>
+              <th>Tx Hash</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="txn-tbody">
+            <!-- Rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ---- BAR CHART (last 10 txns) ---- -->
+    <div class="panel chart-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <!-- Chart icon -->
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"
+               viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/>
+            <rect x="2" y="13" width="4" height="8"/>
+          </svg>
+          ETH Volume (last 10)
+        </div>
+      </div>
+      <div class="chart-body">
+        <canvas id="eth-chart" aria-label="Bar chart of ETH amounts"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /.main-grid -->
+
+  <footer>
+    <p>🐋 WhaleTracker &nbsp;·&nbsp; Data sourced from <a href="http://localhost:3000/whales" target="_blank">localhost:3000/whales</a> &nbsp;·&nbsp; <span id="last-updated"></span></p>
+  </footer>
+
+</div><!-- /.app -->
+
+<script>
+/* ================================================================
+   WHALE TRACKER — main JavaScript
+   ================================================================
+
+   Sections:
+   1. CONFIG & STATE
+   2. MOCK DATA (fallback when backend unreachable)
+   3. DATA FETCHING
+   4. TABLE RENDERING
+   5. CHART RENDERING
+   6. STATS UPDATE
+   7. ALERTS
+   8. SEARCH / FILTER
+   9. THEME TOGGLE
+   10. INITIALIZATION & POLLING
+================================================================ */
+
+/* ----------------------------------------------------------------
+   1. CONFIG & STATE
+---------------------------------------------------------------- */
+const CONFIG = {
+  apiUrl:          'http://localhost:3000/whales',   // Backend endpoint
+  whaleThreshold:  50,    // ETH — highlight rows above this
+  alertThreshold:  100,   // ETH — trigger live alerts above this
+  alertAutoDismiss: 8000, // ms — auto-dismiss alert after 8s
+  chartCount:      10,    // how many recent txns to show in chart
+};
+
+// Global state — single source of truth
+const state = {
+  transactions: [],  // full list from API (or mock)
+  filtered:     [],  // list after search filter applied
+  seenHashes:   new Set(), // track already-alerted tx hashes
+  chart:        null,  // Chart.js instance
+  usedMockData: false, // flag for dev banner
+};
+
+/* ----------------------------------------------------------------
+   2. MOCK DATA — used when backend is unreachable
+   Allows the dashboard to run fully standalone (open index.html)
+---------------------------------------------------------------- */
+function generateMockData() {
+  const wallets = [
+    '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
+    '0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE',
+    '0x742d35Cc6634C0532925a3b8D4C9C1Ddb4E5f61',
+    '0x267be1C1D684F78cb4F6a176C4911b741E4Ffdc0',
+    '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
+    '0x4Fabb145d64652a948d72533023f6E7A623C7C53',
+    '0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8',
+  ];
+
+  const now = Date.now();
+  return Array.from({ length: 18 }, (_, i) => {
+    const amount = parseFloat((Math.random() * 180 + 2).toFixed(4));
+    const wallet = wallets[Math.floor(Math.random() * wallets.length)];
+    return {
+      wallet,
+      amount,
+      hash: '0x' + Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)).join(''),
+      time: new Date(now - i * 3.7 * 60 * 1000).toISOString(),
+    };
+  });
+}
+
+/* ----------------------------------------------------------------
+   3. DATA FETCHING
+   Tries real API; falls back to mock data on any error.
+---------------------------------------------------------------- */
+async function fetchData() {
+  const refreshBtn = document.getElementById('refresh-btn');
+  const overlay    = document.getElementById('loading-overlay');
+
+  // Show loading state
+  overlay.classList.add('active');
+  refreshBtn.classList.add('spinning');
+  refreshBtn.disabled = true;
+
+  try {
+    const res = await fetch(CONFIG.apiUrl, {
+      headers: { 'Content-Type': 'application/json' },
+      // Short timeout so we don't hang on unreachable backend
+      signal: AbortSignal.timeout(4000),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    state.transactions = Array.isArray(data) ? data : [];
+    state.usedMockData = false;
+
+  } catch (err) {
+    // Backend unreachable — use mock data for dev
+    console.warn('[WhaleTracker] Backend unreachable, using mock data:', err.message);
+    state.transactions = generateMockData();
+    state.usedMockData = true;
+
+    // Show a small dev notice in the footer
+    const footer = document.getElementById('last-updated');
+    footer.style.color = 'var(--highlight)';
+    footer.textContent = '⚠ Using mock data (backend unreachable)';
+  } finally {
+    overlay.classList.remove('active');
+    refreshBtn.classList.remove('spinning');
+    refreshBtn.disabled = false;
+  }
+
+  // Sort by time descending (newest first)
+  state.transactions.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+  // Apply current filter before rendering
+  applyFilter();
+
+  // Update all UI sections
+  renderTable();
+  renderChart();
+  updateStats();
+  checkAlerts();
+
+  // Update last-refreshed timestamp (only if not showing mock warning)
+  if (!state.usedMockData) {
+    document.getElementById('last-updated').textContent =
+      'Updated: ' + new Date().toLocaleTimeString();
+  }
+}
+
+/* ----------------------------------------------------------------
+   4. TABLE RENDERING
+   Renders state.filtered into <tbody id="txn-tbody">
+---------------------------------------------------------------- */
+function renderTable() {
+  const tbody = document.getElementById('txn-tbody');
+  const rows  = state.filtered;
+
+  // Empty state
+  if (rows.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4">
+          <div class="empty-state">
+            <div class="empty-icon">🌊</div>
+            <p>No whale transactions found.</p>
+          </div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  // Build all rows with template literals
+  tbody.innerHTML = rows.map(tx => {
+    const isWhale = tx.amount > CONFIG.whaleThreshold;
+    const isMega  = tx.amount > CONFIG.alertThreshold;
+
+    // Truncate wallet and hash for display
+    const shortWallet = `${tx.wallet.slice(0, 6)}…${tx.wallet.slice(-4)}`;
+    const shortHash   = `${tx.hash.slice(0, 10)}…${tx.hash.slice(-6)}`;
+
+    // Format time as relative + absolute
+    const timeAgo  = relativeTime(tx.time);
+    const timeTitle = new Date(tx.time).toLocaleString();
+
+    return `
+      <tr class="${isWhale ? 'whale-row' : ''}">
+        <td class="wallet-cell" title="${tx.wallet}">${shortWallet}</td>
+        <td class="amount-cell ${isWhale ? 'big' : ''}">
+          ${tx.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} Ξ
+          ${isMega  ? '<span class="whale-badge" title="Mega whale!">🚨</span>' : ''}
+          ${isWhale && !isMega ? '<span class="whale-badge" title="Whale!">🐋</span>' : ''}
+        </td>
+        <td>
+          <a class="hash-link"
+             href="https://etherscan.io/tx/${tx.hash}"
+             target="_blank"
+             rel="noopener noreferrer"
+             title="View on Etherscan: ${tx.hash}">
+            ${shortHash} ↗
+          </a>
+        </td>
+        <td class="time-cell" title="${timeTitle}">${timeAgo}</td>
+      </tr>`;
+  }).join('');
+}
+
+/* ----------------------------------------------------------------
+   5. CHART RENDERING
+   Bar chart of last N transactions by ETH amount.
+   Bars above threshold are highlighted.
+   Uses Chart.js 4.x
+---------------------------------------------------------------- */
+function renderChart() {
+  const ctx  = document.getElementById('eth-chart').getContext('2d');
+  // Take last CONFIG.chartCount transactions (already sorted newest first — reverse for chronological)
+  const slice = [...state.transactions].slice(0, CONFIG.chartCount).reverse();
+
+  const labels = slice.map(tx =>
+    `${tx.wallet.slice(0, 5)}…`
+  );
+
+  const amounts = slice.map(tx => tx.amount);
+
+  // Color bars: above 50 ETH = highlight, above 100 ETH = danger, else accent
+  const isDark  = document.documentElement.getAttribute('data-theme') !== 'light';
+  const colors  = amounts.map(a =>
+    a > CONFIG.alertThreshold
+      ? (isDark ? 'rgba(244,63,94,0.85)' : 'rgba(225,29,72,0.85)')
+      : a > CONFIG.whaleThreshold
+        ? (isDark ? 'rgba(251,191,36,0.85)' : 'rgba(217,119,6,0.85)')
+        : (isDark ? 'rgba(0,229,255,0.7)' : 'rgba(2,132,199,0.7)')
+  );
+
+  const borderColors = colors.map(c => c.replace(/[\d.]+\)$/, '1)'));
+
+  // Destroy previous chart instance to avoid canvas reuse error
+  if (state.chart) {
+    state.chart.destroy();
+    state.chart = null;
+  }
+
+  const textColor   = isDark ? '#94a3b8' : '#475569';
+  const gridColor   = isDark ? 'rgba(31,45,69,0.8)' : 'rgba(203,213,225,0.8)';
+
+  state.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'ETH Amount',
+        data: amounts,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            // Show full wallet + amount in tooltip
+            label: (ctx) => {
+              const tx = slice[ctx.dataIndex];
+              return ` ${tx.amount.toFixed(4)} ETH — ${tx.wallet.slice(0, 10)}…`;
+            },
+          },
+          backgroundColor: isDark ? '#111827' : '#fff',
+          titleColor: isDark ? '#e2e8f0' : '#0f172a',
+          bodyColor: isDark ? '#94a3b8' : '#475569',
+          borderColor: isDark ? '#1f2d45' : '#cbd5e1',
+          borderWidth: 1,
+          padding: 10,
+        },
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: textColor,
+            font: { family: "'Space Mono', monospace", size: 10 },
+            maxRotation: 45,
+          },
+          grid: { color: gridColor },
+        },
+        y: {
+          ticks: {
+            color: textColor,
+            font: { family: "'Space Mono', monospace", size: 10 },
+            callback: v => v + ' Ξ',
+          },
+          grid: { color: gridColor },
+          // Draw a threshold line at 50 ETH
+          afterDataLimits: (scale) => {
+            scale.max = Math.max(scale.max, CONFIG.whaleThreshold * 1.2);
+          },
+        },
+      },
+    },
+    plugins: [{
+      // Draw a dashed threshold line at 50 ETH
+      id: 'thresholdLine',
+      afterDraw(chart) {
+        const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+        const yPos = y.getPixelForValue(CONFIG.whaleThreshold);
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = isDark ? 'rgba(251,191,36,0.4)' : 'rgba(217,119,6,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(left, yPos);
+        ctx.lineTo(right, yPos);
+        ctx.stroke();
+        ctx.restore();
+      },
+    }],
+  });
+}
+
+/* ----------------------------------------------------------------
+   6. STATS UPDATE
+   Reads state.transactions (unfiltered) for accurate totals
+---------------------------------------------------------------- */
+function updateStats() {
+  const txns   = state.transactions;
+  const total  = txns.length;
+  const ethSum = txns.reduce((s, tx) => s + tx.amount, 0);
+  const whales = txns.filter(tx => tx.amount > CONFIG.whaleThreshold).length;
+  const mega   = txns.filter(tx => tx.amount > CONFIG.alertThreshold).length;
+
+  document.getElementById('stat-total').textContent  = total;
+  document.getElementById('stat-eth').textContent    = ethSum.toFixed(1) + ' Ξ';
+  document.getElementById('stat-whales').textContent = whales;
+  document.getElementById('stat-mega').textContent   = mega;
+}
+
+/* ----------------------------------------------------------------
+   7. ALERTS
+   Fires for new transactions above alertThreshold that haven't
+   been seen before. Auto-dismisses after 8 seconds.
+---------------------------------------------------------------- */
+function checkAlerts() {
+  const panel = document.getElementById('alerts-panel');
+
+  state.transactions
+    .filter(tx => tx.amount > CONFIG.alertThreshold && !state.seenHashes.has(tx.hash))
+    .forEach(tx => {
+      state.seenHashes.add(tx.hash);
+      showAlert(tx, panel);
+    });
+}
+
+function showAlert(tx, panel) {
+  const el = document.createElement('div');
+  el.className = 'alert-item';
+  el.setAttribute('role', 'alert');
+  el.innerHTML = `
+    <span class="alert-icon">🚨</span>
+    <div class="alert-body">
+      <div class="alert-title">MEGA WHALE ALERT — ${tx.amount.toFixed(4)} ETH</div>
+      <div class="alert-detail">${tx.wallet} · ${relativeTime(tx.time)}</div>
+    </div>
+    <button class="alert-dismiss" aria-label="Dismiss alert" title="Dismiss">✕</button>
+  `;
+
+  // Manual dismiss
+  el.querySelector('.alert-dismiss').addEventListener('click', () => dismissAlert(el));
+
+  panel.prepend(el);
+
+  // Auto-dismiss after configured delay
+  setTimeout(() => dismissAlert(el), CONFIG.alertAutoDismiss);
+}
+
+function dismissAlert(el) {
+  el.style.transition = 'opacity 0.3s, transform 0.3s';
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(-6px)';
+  setTimeout(() => el.remove(), 300);
+}
+
+/* ----------------------------------------------------------------
+   8. SEARCH / FILTER
+   Filters state.transactions by wallet address (case-insensitive)
+   and stores result in state.filtered.
+---------------------------------------------------------------- */
+function applyFilter() {
+  const query = document.getElementById('search-input').value.trim().toLowerCase();
+  state.filtered = query
+    ? state.transactions.filter(tx => tx.wallet.toLowerCase().includes(query))
+    : [...state.transactions];
+}
+
+function onSearchInput() {
+  applyFilter();
+  renderTable();
+  // Stats remain based on full dataset (not filtered)
+}
+
+/* ----------------------------------------------------------------
+   9. THEME TOGGLE
+   Switches data-theme attribute on <html>; re-renders chart for
+   correct colors.
+---------------------------------------------------------------- */
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  // Recreate chart with new color palette
+  renderChart();
+}
+
+/* ----------------------------------------------------------------
+   HELPERS
+---------------------------------------------------------------- */
+
+// Human-friendly relative time string (e.g. "3m ago", "2h ago")
+function relativeTime(isoString) {
+  const diff = (Date.now() - new Date(isoString)) / 1000; // seconds
+  if (diff < 60)   return Math.round(diff) + 's ago';
+  if (diff < 3600) return Math.round(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.round(diff / 3600) + 'h ago';
+  return Math.round(diff / 86400) + 'd ago';
+}
+
+/* ----------------------------------------------------------------
+   10. INITIALIZATION
+   Wire up events and load data on first render.
+---------------------------------------------------------------- */
+function init() {
+  // Bind refresh button
+  document.getElementById('refresh-btn')
+    .addEventListener('click', fetchData);
+
+  // Bind search input (live filter on each keystroke)
+  document.getElementById('search-input')
+    .addEventListener('input', onSearchInput);
+
+  // Bind theme toggle
+  document.getElementById('theme-toggle')
+    .addEventListener('click', toggleTheme);
+
+  // Initial data load
+  fetchData();
+}
+
+// Boot when DOM is ready
+document.addEventListener('DOMContentLoaded', init);
+
+// Connect to your backend WebSocket
+const ws = new WebSocket("ws://localhost:3000");
+
+ws.onopen = () => {
+  console.log("Connected to Whale Radar WebSocket");
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log("Live whale transactions:", data);
+
+  // Call your existing frontend function to update table/chart
+  if (typeof updateDashboard === "function") {
+    updateDashboard(data);
+  }
+};
+
+// Optional: handle disconnects
+ws.onclose = () => console.log("WebSocket disconnected");
+ws.onerror = (err) => console.error("WebSocket error:", err);
+</script>
+</body>
+</html>
