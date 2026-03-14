@@ -1,23 +1,18 @@
 const express = require("express");
 const cors = require("cors");
-const WebSocket = require("ws"); // ← added
-
-require("./websocket");
+const WebSocket = require("ws"); // make sure you require ws
 
 const { getWhaleTransactions } = require("./whaleTracker");
 
 const app = express();
 app.use(cors());
 
-// ── Existing HTTP endpoint ──
+// ─── REST ENDPOINT ───────────────────────────
 app.get("/whales", async (req, res) => {
   try {
     const data = await getWhaleTransactions();
     if (data.length === 0) {
-      return res.json({
-        message: "No whale transactions detected",
-        data: []
-      });
+      return res.json({ message: "No whale transactions detected", data: [] });
     }
     res.json(data);
   } catch (err) {
@@ -25,40 +20,28 @@ app.get("/whales", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+// ─── CREATE HTTP SERVER ───────────────────────
+const server = require("http").createServer(app);
 
-app.listen(PORT,()=>{
-console.log(`Whale radar running 🐋 on port ${PORT}`)
-})
-
-// ── Optional root endpoint ──
-app.get("/", (req, res) => {
-  res.send("Server running");
-});
-
-// ── WebSocket setup ──
+// ─── WEBSOCKET SERVER ────────────────────────
 const wss = new WebSocket.Server({ server });
 
-wss.on("connection", ws => {
-  console.log("Frontend connected via WebSocket");
+wss.on("connection", (ws) => {
+  console.log("Client connected via WebSocket");
 
-  // Send current whale transactions immediately
-  getWhaleTransactions().then(data => ws.send(JSON.stringify(data)));
+  // Example: send latest whale tx every 5s
+  const interval = setInterval(async () => {
+    const data = await getWhaleTransactions();
+    ws.send(JSON.stringify(data));
+  }, 5000);
 
-  // Optional: handle close
-  ws.on("close", () => console.log("Frontend disconnected"));
+  ws.on("close", () => clearInterval(interval));
 });
 
-// Broadcast whales every 10 seconds
-const broadcastWhales = async () => {
-  const data = await getWhaleTransactions();
-  const message = JSON.stringify(data);
+// ─── START SERVER ────────────────────────────
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Whale radar running 🐋 on port ${PORT}`);
+});
 
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
-};
-
-setInterval(broadcastWhales, 10000); // every 10 seconds
+app.get("/", (req, res) => res.send("Server running"));
